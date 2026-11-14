@@ -42,13 +42,13 @@
             <path id="searchSVG" fill-rule="evenodd"></path>
         </svg>
     </div>
-    <a href="{{ blogBase['homeUrl'] }}" id="buttonHome" class="btn btn-invisible circle" title="{{ i18n['home'] }}">
-        <svg class="octicon" width="16" height="16">
+    <a href="{{ blogBase['homeUrl'] }}" id="buttonHome" class="btn btn-invisible circle" title="{{ i18n['home'] }}" aria-label="{{ i18n['home'] }}">
+        <svg class="octicon" width="16" height="16" aria-hidden="true">
             <path id="pathHome" fill-rule="evenodd"></path>
         </svg>
     </a>
-    <a class="btn btn-invisible circle" onclick="modeSwitch()" title="{{ i18n['switchTheme'] }}" {%- if blogBase['themeMode']=='fix' -%}style="display:none;"{%- endif -%}>
-        <svg class="octicon" width="16" height="16" >
+    <a class="btn btn-invisible circle" role="button" tabindex="0" onclick="modeSwitch()" onkeydown="if(event.key==='Enter'||event.key===' '){modeSwitch();}" title="{{ i18n['switchTheme'] }}" aria-label="{{ i18n['switchTheme'] }}" {%- if blogBase['themeMode']=='fix' -%}style="display:none;"{%- endif -%}>
+        <svg class="octicon" width="16" height="16" aria-hidden="true">
             <path id="themeSwitch" fill-rule="evenodd"></path>
         </svg>
     </a>
@@ -63,159 +63,212 @@
 
 {% block script %}
 <script>
-document.getElementById("pathHome").setAttribute("d",IconList["home"]);
-document.getElementById("searchSVG").setAttribute("d",IconList["search"]);
+var BLOG_TITLE = {{ blogBase['title']|tojson }};
+var tagList = [];
+var labelsCount = {};
+var jsonData = null;
 
-tagList=[];
-labelsCount={};
-jsonData='';
-let requestJson="postList.json"
-let request=new XMLHttpRequest();
-request.open("GET",requestJson);
-request.responseType='text';
+document.getElementById("pathHome").setAttribute("d", IconList["home"] || "");
+document.getElementById("searchSVG").setAttribute("d", IconList["search"] || "");
+
+var request = new XMLHttpRequest();
+request.open("GET", "postList.json");
+request.responseType = "text";
+request.onload = function(){
+    if(request.status < 200 || request.status >= 300){
+        showError("load postList.json failed: HTTP " + request.status);
+        return;
+    }
+    try{
+        jsonData = JSON.parse(request.responseText);
+    }catch(e){
+        showError("postList.json is not valid JSON");
+        return;
+    }
+    showList();
+    setClassDisplay(hashLabel());
+};
+request.onerror = function(){
+    showError("network error, can not load postList.json");
+};
 request.send();
-request.onload=function(){
-    jsonData=JSON.parse(request.response);
-    console.log(jsonData);
-    showList(labelsCount);
-    setClassDisplay(decodeURI(window.location.hash.slice(1)));
+
+function hashLabel(){
+    var raw = window.location.hash.slice(1);
+    try{
+        return decodeURIComponent(raw);
+    }catch(e){
+        return raw;
+    }
 }
 
-function showList(labelsCount){
-    let SideNav=document.getElementsByClassName("SideNav")[0];
+function showError(msg){
+    var tagTitle = document.getElementsByClassName("tagTitle")[0];
+    if(tagTitle){ tagTitle.textContent = msg; }
+    var notFind = document.getElementsByClassName("notFind")[0];
+    if(notFind){ notFind.style.display = "block"; notFind.textContent = msg; }
+    document.title = msg;
+}
+
+function labelsOf(el){
+    try{
+        var raw = el.getAttribute("data-labels");
+        return raw ? JSON.parse(raw) : [];
+    }catch(e){ return []; }
+}
+
+function showList(){
+    var SideNav = document.getElementsByClassName("SideNav")[0];
     SideNav.classList.add("border");
-    let taglabel=document.getElementById("taglabel");
+    var taglabel = document.getElementById("taglabel");
 
-    jsonData['labelColorDict']["All"]="#000";
-    labelsCount["All"]=0;
-    for (let key in jsonData) {
-        if (key !== 'labelColorDict' && Array.isArray(jsonData[key]['labels'])) {
+    jsonData["labelColorDict"] = jsonData["labelColorDict"] || {};
+    jsonData["labelColorDict"]["All"] = "#000";
+    labelsCount["All"] = 0;
+
+    for(var key in jsonData){
+        if(key !== "labelColorDict" && jsonData[key] && Array.isArray(jsonData[key].labels)){
             labelsCount["All"]++;
-            for (let label of jsonData[key]['labels']) {
-                labelsCount[label] = (labelsCount[label] || 0) + 1;
-            }
+            jsonData[key].labels.forEach(function(l){
+                labelsCount[l] = (labelsCount[l] || 0) + 1;
+            });
         }
     }
 
-    let sortedLabelsList = Object.keys(labelsCount).sort((a, b) => labelsCount[b] - labelsCount[a]);
-    for (let label of sortedLabelsList) {
+    var sortedLabelsList = Object.keys(labelsCount).sort(function(a, b){ return labelsCount[b] - labelsCount[a]; });
+    sortedLabelsList.forEach(function(label){
         tagList.push(label);
-        let showLabels = document.createElement("button");
-        showLabels.setAttribute("class", "Label");
-        showLabels.setAttribute("style", "background-color:" + jsonData['labelColorDict'][label]+";padding:4px;");
-        showLabels.innerHTML="&nbsp;&nbsp;"+label+" ";
-        showLabels.setAttribute("onclick", "javascript:updateShowTag('" + label + "');");
+        var btn = document.createElement("button");
+        btn.className = "Label";
+        btn.style.backgroundColor = jsonData["labelColorDict"][label] || "#8b949e";
+        btn.style.padding = "4px";
+        btn.textContent = label + " ";
 
-        let LabelNum=document.createElement("span");
-        LabelNum.setAttribute("class","Counter");
-        LabelNum.innerHTML=labelsCount[label];
-        showLabels.appendChild(LabelNum);
-        taglabel.appendChild(showLabels);
-    }
+        var labelNum = document.createElement("span");
+        labelNum.className = "Counter";
+        labelNum.textContent = labelsCount[label];
+        btn.appendChild(labelNum);
 
-    for(i in jsonData){
-        if(i!='labelColorDict'){
-            let div=document.createElement("div");
-            div.setAttribute("class","lists "+jsonData[i]['labels'].join(" "));
-            let item=document.createElement("a");
-            item.setAttribute("class","SideNav-item d-flex flex-items-center flex-justify-between");
-            item.setAttribute("href",jsonData[i]['postUrl']);
+        btn.addEventListener("click", function(){ updateShowTag(label); });
+        taglabel.appendChild(btn);
+    });
 
-            let center=document.createElement("div");
-            center.setAttribute("class","d-flex flex-items-center");
+    for(var id in jsonData){
+        var item = jsonData[id];
+        if(id === "labelColorDict" || !item || !Array.isArray(item.labels)){ continue; }
 
-            svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
-            path=document.createElementNS("http://www.w3.org/2000/svg","path"); 
-            span=document.createElement("span");
-            svg.setAttributeNS(null,"class","SideNav-icon octicon");
-            svg.setAttributeNS(null,"style","width:16px;height:16px");
-            path.setAttributeNS(null, "d", IconList["post"]);
-            svg.appendChild(path);
+        var div = document.createElement("div");
+        div.className = "lists";
+        div.setAttribute("data-labels", JSON.stringify(item.labels));
 
-            let title=document.createElement("span");
-            title.setAttribute("class","listTitle");
-            title.innerHTML=jsonData[i]['postTitle'];
-            center.appendChild(svg);
-            center.appendChild(title);
+        var link = document.createElement("a");
+        link.className = "SideNav-item d-flex flex-items-center flex-justify-between";
+        link.setAttribute("href", item.postUrl);
 
-            let listLabels=document.createElement("div");
-            listLabels.setAttribute("class","listLabels");
-            
-            for(label of jsonData[i]['labels']){
-                let LabelName=document.createElement("span");
-                LabelName.setAttribute("class","Label LabelName");
-                LabelName.setAttribute("style","background-color:"+jsonData['labelColorDict'][label]);
-                LabelName.innerHTML=label;
-                listLabels.appendChild(LabelName);
-            }
-            let LabelTime=document.createElement("span");
-            LabelTime.setAttribute("class","Label LabelTime");
-            LabelTime.setAttribute("style","background-color:"+jsonData[i]['dateLabelColor']);
-            LabelTime.innerHTML=jsonData[i]['createdDate'];
-            listLabels.appendChild(LabelTime);
+        var center = document.createElement("div");
+        center.className = "d-flex flex-items-center";
 
-            item.appendChild(center);
-            item.appendChild(listLabels);
-            div.appendChild(item);
-            SideNav.appendChild(div);
-        }
+        var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        svg.setAttribute("class", "SideNav-icon octicon");
+        svg.setAttribute("style", "width:16px;height:16px");
+        svg.setAttribute("aria-hidden", "true");
+        var path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        path.setAttribute("d", IconList["post"] || "");
+        svg.appendChild(path);
+
+        var title = document.createElement("span");
+        title.className = "listTitle";
+        title.textContent = item.postTitle;
+        center.appendChild(svg);
+        center.appendChild(title);
+
+        var listLabels = document.createElement("div");
+        listLabels.className = "listLabels";
+        item.labels.forEach(function(l){
+            var labelEl = document.createElement("span");
+            labelEl.className = "Label LabelName";
+            labelEl.style.backgroundColor = jsonData["labelColorDict"][l] || "#8b949e";
+            labelEl.textContent = l;
+            listLabels.appendChild(labelEl);
+        });
+
+        var timeEl = document.createElement("span");
+        timeEl.className = "Label LabelTime";
+        timeEl.style.backgroundColor = item.dateLabelColor || "#8b949e";
+        timeEl.textContent = item.createdDate || "";
+        listLabels.appendChild(timeEl);
+
+        link.appendChild(center);
+        link.appendChild(listLabels);
+        div.appendChild(link);
+        SideNav.appendChild(div);
     }
 }
 
 function updateShowTag(label){
-    if(window.location.hash.slice(1)!=encodeURI(label)){
-        window.location.hash="#"+(label);
-        setClassDisplay(label);
-    }
+    setClassDisplay(label);
+    history.replaceState(null, "", "#" + encodeURIComponent(label));
 }
 
 function setClassDisplay(label){
-    let lists = document.getElementsByClassName("lists");
-    let tagTitle = document.getElementsByClassName("tagTitle")[0];
-    tagTitle.innerHTML="Tag #"+label;
-    document.title=label+" - {{ blogBase['title'] }}";
-    document.getElementsByClassName("subnav-search-input")[0].value='';
-    if(label=="All"){
-        for(let i = 0; i < lists.length; i++){lists[i].style.display='block';}
-        document.getElementsByClassName("notFind")[0].style.display='none';
-    }
-    else if(tagList.indexOf(label)!=-1){
-        for(let i = 0; i < lists.length; i++){
-            lists[i].style.display='none';
-        }
+    var lists = document.getElementsByClassName("lists");
+    var tagTitle = document.getElementsByClassName("tagTitle")[0];
+    var notFind = document.getElementsByClassName("notFind")[0];
+    var searchInput = document.getElementsByClassName("subnav-search-input")[0];
 
-        let labels = document.getElementsByClassName(label);
-        for(let i = 0; i < labels.length; i++){
-            labels[i].style.display='block';
+    if(!label){ label = "All"; }
+    tagTitle.textContent = "Tag #" + label;
+    document.title = label + " - " + BLOG_TITLE;
+    searchInput.value = "";
+
+    if(label === "All"){
+        for(var i=0;i<lists.length;i++){ lists[i].style.display = "block"; }
+        notFind.style.display = "none";
+        return;
+    }
+
+    if(tagList.indexOf(label) !== -1){
+        for(var j=0;j<lists.length;j++){
+            lists[j].style.display = labelsOf(lists[j]).indexOf(label) !== -1 ? "block" : "none";
         }
-        document.getElementsByClassName("notFind")[0].style.display='none';
+        notFind.style.display = "none";
+        return;
     }
-    else{
-        document.getElementsByClassName("subnav-search-input")[0].value=label;
-        searchShow();
-    }
+
+    searchInput.value = label;
+    searchShow();
 }
 
 function searchShow(){
-    let lists = document.getElementsByClassName("lists");
-    let tagTitle = document.getElementsByClassName("tagTitle")[0];
-    let searchInput = document.getElementsByClassName("subnav-search-input")[0].value;
-    tagTitle.innerHTML="Search #"+searchInput;
-    if(searchInput==''){document.title="Search - {{ blogBase['title'] }}";}
-    else{document.title=searchInput+" - {{ blogBase['title'] }}";}
-    let a=0;
-    window.location.hash="#"+(searchInput);
-    for(let i = 0; i < lists.length; i++){
-        if(lists[i].childNodes[0].childNodes[0].childNodes[1].innerHTML.toUpperCase().indexOf(searchInput.toUpperCase())==-1){lists[i].style.display='none';}
-        else{lists[i].style.display='block';a=a+1;}
-    }
-    if(a==0){
-        let notFind=document.getElementsByClassName("notFind")[0];
-        notFind.style.display='block';
-        notFind.innerHTML='Not Find "'+searchInput+'"';
-    }
-    else{document.getElementsByClassName("notFind")[0].style.display='none';}
-}
+    var lists = document.getElementsByClassName("lists");
+    var tagTitle = document.getElementsByClassName("tagTitle")[0];
+    var notFind = document.getElementsByClassName("notFind")[0];
+    var input = document.getElementsByClassName("subnav-search-input")[0].value;
+    var keyword = input.toUpperCase();
+    var hit = 0;
 
+    tagTitle.textContent = "Search #" + input;
+    document.title = (input === "" ? "Search" : input) + " - " + BLOG_TITLE;
+
+    for(var i=0;i<lists.length;i++){
+        var titleEl = lists[i].querySelector(".listTitle");
+        var text = titleEl ? titleEl.textContent.toUpperCase() : "";
+        if(text.indexOf(keyword) === -1){
+            lists[i].style.display = "none";
+        }else{
+            lists[i].style.display = "block";
+            hit++;
+        }
+    }
+
+    if(hit === 0){
+        notFind.style.display = "block";
+        notFind.textContent = 'Not Find "' + input + '"';
+    }else{
+        notFind.style.display = "none";
+    }
+
+    history.replaceState(null, "", "#" + encodeURIComponent(input));
+}
 </script>
 {% endblock %}

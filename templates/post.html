@@ -8,8 +8,8 @@
 <meta property="og:url" content="{{ blogBase['postUrl'] }}">
 <meta property="og:image" content="{{ blogBase['ogImage'] }}">
 <title>{{ blogBase['postTitle'] }}</title>
-{% if blogBase['highlight']==1 %}<link href="//unpkg.com/@wooorm/starry-night@2.1.1/style/both.css" rel="stylesheet" />{% endif %}
-{{ blogBase['head'] }}
+{% if blogBase['highlight']==1 %}<link href="https://unpkg.com/@wooorm/starry-night@2.1.1/style/both.css" rel="stylesheet" />{% endif %}
+{{ blogBase['head']|safe }}
 {% endblock %}
 
 {% block style %}
@@ -39,27 +39,27 @@
     font-size: 12px;
 }{% endif %}
 </style>
-{{ blogBase['style'] }}
+{{ blogBase['style']|safe }}
 
 {% endblock %}
 {% block header %}
 <h1 class="postTitle">{{ blogBase['postTitle'] }}</h1>
 <div class="title-right">
-    <a href="{{ blogBase['homeUrl'] }}" id="buttonHome" class="btn btn-invisible circle" title="{{ i18n['home'] }}">
-        <svg class="octicon" width="16" height="16">
+    <a href="{{ blogBase['homeUrl'] }}" id="buttonHome" class="btn btn-invisible circle" title="{{ i18n['home'] }}" aria-label="{{ i18n['home'] }}">
+        <svg class="octicon" width="16" height="16" aria-hidden="true">
             <path id="pathHome" fill-rule="evenodd"></path>
         </svg>
     </a>
     {% if blogBase['showPostSource']==1 %}
-    <a href="{{ blogBase['postSourceUrl'] }}" target="_blank" class="btn btn-invisible circle" title="Issue">
-        <svg class="octicon" width="16" height="16">
+    <a href="{{ blogBase['postSourceUrl'] }}" target="_blank" rel="noopener noreferrer" class="btn btn-invisible circle" title="Issue" aria-label="Issue">
+        <svg class="octicon" width="16" height="16" aria-hidden="true">
             <path id="pathIssue" fill-rule="evenodd"></path>
         </svg>
     </a>
     {% endif %}
 
-    <a class="btn btn-invisible circle" onclick="modeSwitch();" title="{{ i18n['switchTheme'] }}" {%- if blogBase['themeMode']=='fix' -%}style="display:none;"{%- endif -%}>
-        <svg class="octicon" width="16" height="16" >
+    <a class="btn btn-invisible circle" role="button" tabindex="0" onclick="modeSwitch();" onkeydown="if(event.key==='Enter'||event.key===' '){modeSwitch();}" title="{{ i18n['switchTheme'] }}" aria-label="{{ i18n['switchTheme'] }}" {%- if blogBase['themeMode']=='fix' -%}style="display:none;"{%- endif -%}>
+        <svg class="octicon" width="16" height="16" aria-hidden="true">
             <path id="themeSwitch" fill-rule="evenodd"></path>
         </svg>
     </a>
@@ -68,8 +68,8 @@
 {% endblock %}
 
 {% block content %}
-<div class="markdown-body" id="postBody">{{ blogBase['postBody'] }}</div>
-<div style="font-size:small;margin-top:8px;float:right;">{{ blogBase['bottomText'] }}</div>
+<div class="markdown-body" id="postBody">{{ blogBase['postBody']|safe }}</div>
+<div style="font-size:small;margin-top:8px;float:right;">{{ blogBase['bottomText']|safe }}</div>
 {% if blogBase['needComment']==1 %}
 <button class="btn btn-block" type="button" onclick="openComments()" id="cmButton">{{ i18n['comments'] }}</button>
 <div class="comments" id="comments"></div>
@@ -78,117 +78,145 @@
 
 {% block script %}
 <script>
-document.getElementById("pathHome").setAttribute("d",IconList["home"]);
-{% if blogBase['showPostSource']==1 %}document.getElementById("pathIssue").setAttribute("d",IconList["github"]);{% endif %}
-{% if blogBase['commentNum']>0 -%}
-    cmButton=document.getElementById("cmButton");
-    span=document.createElement("span");
-    span.setAttribute("class","Counter");
-    span.innerHTML="{{ blogBase['commentNum'] }}";
-    cmButton.appendChild(span);
-{%- endif %}
+var pathHome = document.getElementById("pathHome");
+if(pathHome){ pathHome.setAttribute("d", IconList["home"] || ""); }
+{% if blogBase['showPostSource']==1 %}
+var pathIssue = document.getElementById("pathIssue");
+if(pathIssue){ pathIssue.setAttribute("d", IconList["github"] || ""); }
+{% endif %}
+{% if blogBase['needComment']==1 and blogBase['commentNum']>0 %}
+(function(){
+    var btn = document.getElementById("cmButton");
+    if(!btn){ return; }
+    var span = document.createElement("span");
+    span.className = "Counter";
+    span.textContent = {{ blogBase['commentNum']|tojson }};
+    btn.appendChild(span);
+})();
+{% endif %}
 
 {% if blogBase['needComment']==1 %}
+var cmTimer = null;
 function openComments(){
-    cm=document.getElementById("comments");
-    cmButton=document.getElementById("cmButton");
-    cmButton.disabled=true;
-    cmButton.innerHTML="loading";
-    span=document.createElement("span");
-    span.setAttribute("class","AnimatedEllipsis");
-    cmButton.appendChild(span);
+    var cm = document.getElementById("comments");
+    var btn = document.getElementById("cmButton");
+    if(!cm || !btn){ return; }
+    btn.disabled = true;
+    btn.textContent = "loading";
+    var span = document.createElement("span");
+    span.className = "AnimatedEllipsis";
+    btn.appendChild(span);
 
-    script=document.createElement("script");
-    script.setAttribute("src","https://utteranc.es/client.js");
-    script.setAttribute("repo","{{ blogBase['repoName'] }}");
-    script.setAttribute("issue-term","title");
+    var script = document.createElement("script");
+    script.src = "https://utteranc.es/client.js";
+    script.setAttribute("repo", {{ blogBase['repoName']|tojson }});
+    script.setAttribute("issue-term", "title");
     {% if blogBase['themeMode']=='manual' %}
-    if(localStorage.getItem("meek_theme")=="dark"){script.setAttribute("theme","dark-blue");}
-    else if(localStorage.getItem("meek_theme")=="light") {script.setAttribute("theme","github-light");}
-    else{script.setAttribute("theme","preferred-color-scheme");}
+    var savedTheme = localStorage.getItem("meek_theme") || "light";
+    script.setAttribute("theme", savedTheme === "dark" ? "dark-blue" : (savedTheme === "light" ? "github-light" : "preferred-color-scheme"));
     {% else %}
-    script.setAttribute("theme","{{ blogBase['nightTheme'] }}");
+    script.setAttribute("theme", {{ blogBase['nightTheme']|tojson }});
     {% endif %}
-    script.setAttribute("crossorigin","anonymous");
-    script.setAttribute("async","");
+    script.setAttribute("crossorigin", "anonymous");
+    script.setAttribute("async", "");
     cm.appendChild(script);
 
-    int=self.setInterval("iFrameLoading()",200);
-}
-
-function iFrameLoading(){
-    var utterances=document.getElementsByClassName('utterances');
-    if(utterances.length==1){
-        if(utterances[0].style.height!=""){
-            utterancesLoad=1;
-            int=window.clearInterval(int);
-            document.getElementById("cmButton").style.display="none";
+    var tries = 0;
+    cmTimer = window.setInterval(function(){
+        var frames = document.getElementsByClassName("utterances");
+        if(frames.length === 1 && frames[0].style.height !== ""){
+            utterancesLoad = 1;
+            window.clearInterval(cmTimer);
+            btn.style.display = "none";
             console.log("utterances Load OK");
+        }else if(++tries > 75){
+            window.clearInterval(cmTimer);
+            btn.disabled = false;
         }
-    }
+    }, 200);
 }
-{%- endif %}
+{% endif %}
 
-{% if blogBase['highlight']!=0 -%}
-document.addEventListener('DOMContentLoaded', () => {
-    const createClipboardHTML = (codeContent, additionalClasses = '') => `
-        <pre class="notranslate"><code class="notranslate">${codeContent}</code></pre>
-        <div class="clipboard-container position-absolute right-0 top-0 ${additionalClasses}">
-            <clipboard-copy class="ClipboardButton btn m-2 p-0" role="button" style="display: inherit;">
-                <svg height="16" width="16" class="octicon octicon-copy m-2"><path d="${IconList["copy"]}"></path></svg>
-                <svg height="16" width="16" class="octicon octicon-check color-fg-success m-2 d-none"><path d="${IconList["check"]}"></path></svg>
-            </clipboard-copy>
-            <div class="copy-feedback">Copied!</div>
-        </div>
-    `;
+{% if blogBase['highlight']!=0 %}
+function copyText(text){
+    if(navigator.clipboard && window.isSecureContext){
+        return navigator.clipboard.writeText(text);
+    }
+    return new Promise(function(resolve, reject){
+        try{
+            var ta = document.createElement("textarea");
+            ta.value = text;
+            ta.style.position = "fixed";
+            ta.style.top = "-1000px";
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand("copy");
+            document.body.removeChild(ta);
+            resolve();
+        }catch(e){ reject(e); }
+    });
+}
 
-    const handleCodeElements = (selector = '') => {
-        document.querySelectorAll(selector).forEach(codeElement => {
-            const codeContent = codeElement.innerHTML;
-            const newStructure = document.createElement('div');
+document.addEventListener('DOMContentLoaded', function(){
+    function createClipboardHTML(codeContent){
+        var copyIcon = IconList["copy"] || "";
+        var checkIcon = IconList["check"] || "";
+        return '<pre class="notranslate"><code class="notranslate">' + codeContent + '</code></pre>' +
+            '<div class="clipboard-container position-absolute right-0 top-0">' +
+            '<clipboard-copy class="ClipboardButton btn m-2 p-0" role="button" style="display: inherit;">' +
+            '<svg height="16" width="16" class="octicon octicon-copy m-2" aria-hidden="true"><path d="' + copyIcon + '"></path></svg>' +
+            '<svg height="16" width="16" class="octicon octicon-check color-fg-success m-2 d-none" aria-hidden="true"><path d="' + checkIcon + '"></path></svg>' +
+            '</clipboard-copy>' +
+            '<div class="copy-feedback">Copied!</div>' +
+            '</div>';
+    }
+
+    function handleCodeElements(selector){
+        document.querySelectorAll(selector).forEach(function(codeElement){
+            var codeContent = codeElement.innerHTML;
+            var newStructure = document.createElement('div');
             newStructure.className = 'snippet-clipboard-content position-relative overflow-auto';
             newStructure.innerHTML = createClipboardHTML(codeContent);
 
-            const parentElement = codeElement.parentElement;
-            if (selector.includes('highlight')) {
+            var parentElement = codeElement.parentElement;
+            if(!parentElement){ return; }
+            if(selector.indexOf('highlight') !== -1){
                 parentElement.insertBefore(newStructure, codeElement.nextSibling);
                 parentElement.removeChild(codeElement);
-            } else {
-                parentElement.parentElement.replaceChild(newStructure, parentElement);
+            }else{
+                var outer = parentElement.parentElement;
+                if(outer){ outer.replaceChild(newStructure, parentElement); }
             }
         });
-    };
+    }
 
     handleCodeElements('pre.notranslate > code.notranslate');
     handleCodeElements('div.highlight > pre.notranslate');
 
-    let currentFeedback = null;
-    document.querySelectorAll('clipboard-copy').forEach(copyButton => {
-        copyButton.addEventListener('click', () => {
-            const codeContent = copyButton.closest('.snippet-clipboard-content').innerText;
-            const tempTextArea = document.createElement('textarea');
-            tempTextArea.value = codeContent;
-            document.body.appendChild(tempTextArea);
-            tempTextArea.select();
-            document.execCommand('copy');
-            document.body.removeChild(tempTextArea);
+    var currentFeedback = null;
+    document.querySelectorAll('clipboard-copy').forEach(function(copyButton){
+        copyButton.addEventListener('click', function(){
+            var container = copyButton.closest('.snippet-clipboard-content');
+            if(!container){ return; }
+            copyText(container.innerText).catch(function(){});
 
-            const copyIcon = copyButton.querySelector('.octicon-copy');
-            const checkIcon = copyButton.querySelector('.octicon-check');
-            const copyFeedback = copyButton.nextElementSibling;
+            var copyIconEl = copyButton.querySelector('.octicon-copy');
+            var checkIconEl = copyButton.querySelector('.octicon-check');
+            var feedback = copyButton.nextElementSibling;
+            if(!copyIconEl || !checkIconEl || !feedback){ return; }
 
-            if (currentFeedback && currentFeedback !== copyFeedback) {currentFeedback.style.display = 'none';}
-            currentFeedback = copyFeedback;
+            if(currentFeedback && currentFeedback !== feedback){ currentFeedback.style.display = 'none'; }
+            currentFeedback = feedback;
 
-            copyIcon.classList.add('d-none');
-            checkIcon.classList.remove('d-none');
-            copyFeedback.style.display = 'block';
+            copyIconEl.classList.add('d-none');
+            checkIconEl.classList.remove('d-none');
+            feedback.style.display = 'block';
             copyButton.style.borderColor = 'var(--color-success-fg)';
 
-            setTimeout(() => {
-                copyIcon.classList.remove('d-none');
-                checkIcon.classList.add('d-none');
-                copyFeedback.style.display = 'none';
+            setTimeout(function(){
+                copyIconEl.classList.remove('d-none');
+                checkIconEl.classList.add('d-none');
+                feedback.style.display = 'none';
                 copyButton.style.borderColor = '';
             }, 2000);
         });
@@ -197,5 +225,5 @@ document.addEventListener('DOMContentLoaded', () => {
 {%- endif %}
 
 </script>
-{{ blogBase['script'] }}
+{{ blogBase['script']|safe }}
 {% endblock %}

@@ -137,7 +137,7 @@ class GMEEK():
 
     def renderHtml(self,template,blogBase,postListJson,htmlDir,icon):
         file_loader = FileSystemLoader('templates')
-        env = Environment(loader=file_loader)
+        env = Environment(loader=file_loader, autoescape=True)
         template = env.get_template(template)
         output = template.render(blogBase=blogBase,postListJson=postListJson,i18n=self.i18n,IconList=icon)
         f = open(htmlDir, 'w', encoding='UTF-8')
