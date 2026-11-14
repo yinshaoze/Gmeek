@@ -10,7 +10,7 @@ Gmeek это блог генератор, использующий `Github Pages
 ![dark](img/dark.jpg)
 
 ### Установка
-1. Нажмите [Create a repository from template](https://github.com/new?template_name=Gmeek-template&template_owner=Meekdai), рекомендуемое имя репозитория - `XXX.github.io`, где `XXX` это имя вашего профиля github.
+1. Нажмите [Create a repository from template](https://github.com/new?template_name=Gmeek-template&template_owner=yinshaoze), рекомендуемое имя репозитория - `XXX.github.io`, где `XXX` это имя вашего профиля github.
 
 2. В репозитории выберите `Settings`, выберите `Github Actions` в следующем месте `Pages->Build and deployment->Source`.
 

@@ -10,7 +10,7 @@ Gmeek is a Blog Generator based on `Github Pages` and `Github Issues` and `Githu
 ![dark](img/dark.jpg)
 
 ### Installation
-1. Click [Create a repository from template](https://github.com/new?template_name=Gmeek-template&template_owner=Meekdai), the recommended repository name is `XXX.github.io`,where `XXX` is your github username.
+1. Click [Create a repository from template](https://github.com/new?template_name=Gmeek-template&template_owner=yinshaoze), the recommended repository name is `XXX.github.io`,where `XXX` is your github username.
 
 2. In the repository `Settings`, select `Github Actions` in `Pages->Build and deployment->Source`.
 
